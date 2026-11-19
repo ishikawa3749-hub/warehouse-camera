@@ -1,1 +1,125 @@
 
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>倉庫バーコード読み取り</title>
+
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+
+<style>
+body {
+  font-family: sans-serif;
+  background: #f3f5f7;
+  padding: 18px;
+}
+.card {
+  background: white;
+  padding: 18px;
+  border-radius: 12px;
+}
+button {
+  width: 100%;
+  padding: 16px;
+  margin: 8px 0;
+  font-size: 18px;
+  background: #2463a6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+video {
+  width: 100%;
+  margin-top: 12px;
+  background: black;
+  border-radius: 8px;
+}
+#message {
+  font-weight: bold;
+  margin-top: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+<h2>📦 倉庫商品読み取り</h2>
+
+<p>商品バーコードにスマホをかざしてください。</p>
+
+<button id="start" onclick="startScan()">
+カメラを起動する
+</button>
+
+<video id="video" autoplay muted playsinline></video>
+
+<button onclick="stopScan()">カメラを停止</button>
+
+<p id="message">読み取り待機中です</p>
+</div>
+
+<script>
+
+// ★ここに自社Apps ScriptのウェブアプリURLを入力
+const GAS_URL = 'ここにApps ScriptのURLを貼る';
+
+let controls = null;
+let reader = null;
+let scanning = false;
+
+async function startScan() {
+  if (scanning) return;
+
+  try {
+    document.getElementById('message').textContent =
+      'カメラを起動しています...';
+
+    reader = new ZXingBrowser.BrowserMultiFormatReader();
+
+    controls = await reader.decodeFromVideoDevice(
+      undefined,
+      document.getElementById('video'),
+      (result, error) => {
+        if (result && scanning) {
+          const code = result.getText();
+
+          scanning = false;
+          stopScan();
+
+          document.getElementById('message').textContent =
+            '読み取り成功：' + code;
+
+          // Apps Scriptの商品登録画面へ移動
+          window.location.href =
+            GAS_URL + '?code=' + encodeURIComponent(code);
+        }
+      }
+    );
+
+    scanning = true;
+
+    document.getElementById('message').textContent =
+      '商品にカメラをかざしてください';
+
+  } catch(e) {
+    scanning = false;
+    document.getElementById('message').textContent =
+      'カメラエラー：' + e.message;
+  }
+}
+
+function stopScan() {
+  scanning = false;
+
+  if (controls) {
+    controls.stop();
+    controls = null;
+  }
+}
+
+</script>
+</body>
+</html>
+
