@@ -6,8 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>倉庫バーコード読み取り</title>
 
-<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
-
 <style>
 body {
   font-family: sans-serif;
@@ -38,6 +36,7 @@ video {
 #message {
   font-weight: bold;
   margin-top: 15px;
+  overflow-wrap: anywhere;
 }
 </style>
 </head>
@@ -46,67 +45,74 @@ video {
 
 <div class="card">
 <h2>📦 倉庫商品読み取り</h2>
-
 <p>商品バーコードにスマホをかざしてください。</p>
 
-<button id="start" onclick="startScan()">
-カメラを起動する
-</button>
+<button id="start">カメラを起動する</button>
 
 <video id="video" autoplay muted playsinline></video>
 
-<button onclick="stopScan()">カメラを停止</button>
+<button id="stop">カメラを停止</button>
 
 <p id="message">読み取り待機中です</p>
 </div>
 
-<script>
+<script type="module">
+import {
+  BrowserMultiFormatReader
+} from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 
-// ★ここに自社Apps ScriptのウェブアプリURLを入力
-const GAS_URL = 'ここにApps ScriptのURLを貼る';
+// Apps ScriptのURLは後で設定
+const GAS_URL = "";
 
-let controls = null;
+const video = document.getElementById("video");
+const message = document.getElementById("message");
+
 let reader = null;
+let controls = null;
 let scanning = false;
 
 async function startScan() {
   if (scanning) return;
 
   try {
-    document.getElementById('message').textContent =
-      'カメラを起動しています...';
+    scanning = true;
+    message.textContent = "カメラを起動しています...";
 
-    reader = new ZXingBrowser.BrowserMultiFormatReader();
+    reader = new BrowserMultiFormatReader();
 
     controls = await reader.decodeFromVideoDevice(
       undefined,
-      document.getElementById('video'),
+      video,
       (result, error) => {
         if (result && scanning) {
           const code = result.getText();
 
           scanning = false;
-          stopScan();
 
-          document.getElementById('message').textContent =
-            '読み取り成功：' + code;
+          if (controls) {
+            controls.stop();
+            controls = null;
+          }
 
-          // Apps Scriptの商品登録画面へ移動
-          window.location.href =
-            GAS_URL + '?code=' + encodeURIComponent(code);
+          message.textContent = "読み取り成功：" + code;
+
+          if (GAS_URL) {
+            window.location.href =
+              GAS_URL + "?code=" + encodeURIComponent(code);
+          }
         }
       }
     );
 
-    scanning = true;
+    if (scanning) {
+      message.textContent =
+        "商品にカメラをかざしてください";
+    }
 
-    document.getElementById('message').textContent =
-      '商品にカメラをかざしてください';
-
-  } catch(e) {
+  } catch (e) {
     scanning = false;
-    document.getElementById('message').textContent =
-      'カメラエラー：' + e.message;
+    message.textContent =
+      "カメラエラー：" + e.message;
   }
 }
 
@@ -117,9 +123,21 @@ function stopScan() {
     controls.stop();
     controls = null;
   }
+
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+  }
+
+  message.textContent = "カメラを停止しました";
 }
+
+document.getElementById("start")
+  .addEventListener("click", startScan);
+
+document.getElementById("stop")
+  .addEventListener("click", stopScan);
 
 </script>
 </body>
 </html>
-
